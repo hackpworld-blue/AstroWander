@@ -53,21 +53,12 @@
   }
 
   /* ================= tabs ================= */
-  const TAB_LABEL = { sky: 'Sky', point: 'Point', solve: 'Solve', atlas: 'Atlas' };
-
-  function setNavOpen(open) {
-    $('navbar').dataset.open = String(open);
-    $('navToggle').setAttribute('aria-expanded', String(open));
-  }
-
   function setTab(name) {
     currentTab = name;
     for (const t of document.querySelectorAll('[role=tab]')) {
       t.setAttribute('aria-selected', String(t.dataset.panel === name));
     }
     for (const p of ['sky', 'point', 'solve', 'atlas']) $('panel-' + p).hidden = (p !== name);
-    $('navCurrent').textContent = TAB_LABEL[name] || name;
-    setNavOpen(false);                       /* fold away again once a choice is made */
     if (name !== 'point' && ar) ar.stop();
     if (name === 'sky') { sky.resize(); redraw(); }
     if (name === 'atlas') renderAtlas();
@@ -75,16 +66,6 @@
   for (const t of document.querySelectorAll('[role=tab]')) {
     t.addEventListener('click', () => setTab(t.dataset.panel));
   }
-  $('navToggle').addEventListener('click', function () {
-    setNavOpen($('navbar').dataset.open !== 'true');
-  });
-  /* tapping the view itself, or pressing Escape, folds the bar back */
-  document.querySelector('main').addEventListener('pointerdown', function () {
-    if ($('navbar').dataset.open === 'true') setNavOpen(false);
-  }, true);
-  addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && $('navbar').dataset.open === 'true') setNavOpen(false);
-  });
 
   /* ================= sky chart ================= */
   const sky = SkyMap.create($('sky'));
