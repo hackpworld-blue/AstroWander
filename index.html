@@ -1,0 +1,445 @@
+<title>AstroWander</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg:        #EBEDF2;
+    --surface:   #FFFFFF;
+    --surface-2: #F1F3F8;
+    --line:      #D2D7E1;
+    --line-soft: #E2E6EE;
+    --ink:       #12151F;
+    --muted:     #5C657A;
+    --faint:     #8790A3;
+    --brass:     #9A6E14;
+    --brass-2:   #C79A3A;
+    --verdigris: #22705F;
+    --copper:    #9E4423;
+
+    /* The chart itself stays dark in both themes: a star map on a white ground
+       cannot show star colour or relative brightness honestly. */
+    --sky-ground:   #04060D;
+    --sky-grid:     rgba(120,140,180,.20);
+    --sky-horizon:  rgba(217,164,65,.55);
+    --sky-conline:  rgba(120,150,200,.28);
+    --sky-conname:  rgba(150,170,205,.38);
+    --sky-starname: rgba(226,232,245,.78);
+    --sky-dso:      rgba(217,164,65,.62);
+    --sky-bodyname: rgba(246,241,228,.92);
+    --sky-cardinal: rgba(150,165,195,.72);
+    --sky-moondark: #2A2E3C;
+    --sky-moonedge: rgba(226,232,245,.40);
+    --ar-line:      rgba(130,165,220,.35);
+    --ar-text:      rgba(240,244,252,.92);
+
+    --r: 10px;
+    --gutter: 16px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:        #080A12;
+      --surface:   #10131D;
+      --surface-2: #171B27;
+      --line:      #262B39;
+      --line-soft: #1C2130;
+      --ink:       #E5E8F0;
+      --muted:     #8B94A9;
+      --faint:     #646D82;
+      --brass:     #D9A441;
+      --brass-2:   #B8873180;
+      --verdigris: #4E9E8F;
+      --copper:    #C0714A;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:        #080A12;
+    --surface:   #10131D;
+    --surface-2: #171B27;
+    --line:      #262B39;
+    --line-soft: #1C2130;
+    --ink:       #E5E8F0;
+    --muted:     #8B94A9;
+    --faint:     #646D82;
+    --brass:     #D9A441;
+    --brass-2:   #B8873180;
+    --verdigris: #4E9E8F;
+    --copper:    #C0714A;
+    color-scheme: dark;
+  }
+
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+  /* Red night-vision mode — standard practice at the eyepiece, since red light
+     preserves dark adaptation. */
+  body.night { filter: grayscale(1) sepia(1) hue-rotate(-32deg) saturate(5.5) brightness(.78); }
+
+  #app { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ---------- header ---------- */
+  header {
+    flex: none; display: flex; align-items: center; gap: 10px;
+    padding: 10px var(--gutter); background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .wordmark {
+    font-family: "Instrument Serif", Georgia, serif; font-size: 22px;
+    letter-spacing: .01em; line-height: 1; white-space: nowrap;
+  }
+  .wordmark em { font-style: italic; color: var(--brass); }
+  .hgap { flex: 1 }
+  .pill {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: var(--muted); background: var(--surface-2);
+    border: 1px solid var(--line-soft); border-radius: 999px;
+    padding: 4px 9px; white-space: nowrap;
+  }
+  .iconbtn {
+    flex: none; width: 34px; height: 34px; border-radius: 8px; cursor: pointer;
+    background: var(--surface-2); border: 1px solid var(--line);
+    color: var(--muted); font-size: 15px; line-height: 1;
+    display: grid; place-items: center;
+  }
+  .iconbtn[aria-pressed="true"] { background: var(--brass); color: #12151F; border-color: var(--brass); }
+  .iconbtn:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
+  [role="tab"]:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+  /* ---------- main ---------- */
+  main { flex: 1; position: relative; min-height: 0; }
+  .panel { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }
+
+  /* ---------- tab bar ---------- */
+  nav[role="tablist"] {
+    flex: none; display: grid; grid-template-columns: repeat(4, 1fr);
+    background: var(--surface); border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  [role="tab"] {
+    appearance: none; background: none; border: 0; cursor: pointer;
+    padding: 9px 4px 11px; color: var(--faint);
+    font: inherit; font-size: 11px; letter-spacing: .05em; text-transform: uppercase;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    border-top: 2px solid transparent; margin-top: -1px;
+  }
+  [role="tab"] svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+  [role="tab"][aria-selected="true"] { color: var(--brass); border-top-color: var(--brass); }
+
+  /* ---------- sky chart ---------- */
+  .chartwrap { flex: 1; position: relative; min-height: 0; background: #04060D; touch-action: none; }
+  .chartwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .chartbar {
+    flex: none; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    padding: 9px var(--gutter); background: var(--surface); border-top: 1px solid var(--line);
+  }
+  .chip {
+    appearance: none; cursor: pointer; font: inherit; font-size: 11.5px;
+    padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+    background: var(--surface-2); color: var(--muted); border: 1px solid var(--line);
+  }
+  .chip[aria-pressed="true"] { color: var(--brass); border-color: var(--brass); background: transparent; }
+  .timerow { display: flex; align-items: center; gap: 10px; width: 100%; }
+  .timerow input[type=range] { flex: 1; min-width: 80px; accent-color: var(--brass); }
+  .clock {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; font-variant-numeric: tabular-nums;
+    white-space: nowrap; color: var(--ink);
+  }
+
+  .hud {
+    position: absolute; left: var(--gutter); top: 12px; z-index: 2;
+    font-family: "IBM Plex Mono", monospace; font-size: 10.5px; line-height: 1.7;
+    color: rgba(226,232,245,.62); pointer-events: none; text-shadow: 0 1px 3px #000;
+  }
+  .hud b { color: var(--brass-2); font-weight: 500; }
+
+  /* ---------- point / AR ---------- */
+  .arwrap { flex: 1; position: relative; min-height: 0; background: #04060D; overflow: hidden; touch-action: none; }
+  .arwrap video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .arwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .arstart { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; }
+  .arstart-inner { max-width: 34ch; color: rgba(226,232,245,.85); }
+  .bigbtn {
+    appearance: none; cursor: pointer; font: inherit; font-weight: 600; font-size: 14px;
+    padding: 11px 22px; border-radius: 999px; border: 0;
+    background: var(--brass); color: #10131D; margin-top: 14px;
+  }
+  .arnote {
+    position: absolute; left: var(--gutter); right: var(--gutter); bottom: 10px; z-index: 3;
+    font-size: 11.5px; color: rgba(226,232,245,.75); text-align: center; text-shadow: 0 1px 3px #000;
+  }
+
+  /* ---------- solve ---------- */
+  .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; }
+  .pad { padding: 14px var(--gutter) 22px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+    padding: 14px; margin-bottom: 12px;
+  }
+  .card h3 {
+    margin: 0 0 6px; font-family: "Instrument Serif", Georgia, serif;
+    font-size: 19px; font-weight: 400; letter-spacing: .01em;
+  }
+  .lede { margin: 0 0 12px; color: var(--muted); max-width: 62ch; }
+  .drop {
+    border: 1.5px dashed var(--line); border-radius: var(--r); padding: 26px 16px;
+    text-align: center; color: var(--muted); cursor: pointer; background: var(--surface-2);
+  }
+  .drop.over { border-color: var(--brass); color: var(--brass); }
+  .solvecanvaswrap { position: relative; background: #04060D; border-radius: var(--r); overflow: hidden; }
+  .solvecanvaswrap canvas { display: block; width: 100%; height: auto; }
+  progress { width: 100%; height: 5px; accent-color: var(--brass); }
+
+  table.facts { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.facts th {
+    text-align: left; font-weight: 400; color: var(--muted); padding: 5px 12px 5px 0;
+    vertical-align: top; white-space: nowrap; width: 1%;
+  }
+  table.facts td {
+    padding: 5px 0; font-family: "IBM Plex Mono", monospace; font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  table.facts tr + tr th, table.facts tr + tr td { border-top: 1px solid var(--line-soft); }
+
+  /* ---------- atlas ---------- */
+  .searchrow { flex: none; padding: 10px var(--gutter); background: var(--surface); border-bottom: 1px solid var(--line); }
+  .searchrow input {
+    width: 100%; box-sizing: border-box; font: inherit; padding: 9px 12px;
+    border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink);
+  }
+  .filters { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  ul.results { list-style: none; margin: 0; padding: 0; }
+  ul.results li {
+    display: flex; align-items: baseline; gap: 10px; cursor: pointer;
+    padding: 10px var(--gutter); border-bottom: 1px solid var(--line-soft);
+  }
+  ul.results li:hover { background: var(--surface-2); }
+  .rname { flex: 1; min-width: 0; }
+  .rname strong { font-weight: 500; }
+  .rname span { display: block; color: var(--faint); font-size: 12px; }
+  .rmag {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; font-variant-numeric: tabular-nums;
+    color: var(--muted); white-space: nowrap;
+  }
+  .updot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--line); align-self: center; }
+  .updot.up { background: var(--verdigris); }
+
+  /* ---------- detail sheet ---------- */
+  #sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 20; max-height: 82%;
+    background: var(--surface); border-top: 1px solid var(--line);
+    border-radius: 14px 14px 0 0; box-shadow: 0 -12px 34px rgba(0,0,0,.28);
+    display: flex; flex-direction: column; min-height: 0;
+    transform: translateY(0); transition: transform .22s ease;
+  }
+  #sheet[hidden] { display: none !important; }
+  .sheethead {
+    flex: none; display: flex; align-items: flex-start; gap: 10px;
+    padding: 14px var(--gutter) 10px; border-bottom: 1px solid var(--line-soft);
+  }
+  .sheethead h2 {
+    margin: 0; font-family: "Instrument Serif", Georgia, serif;
+    font-weight: 400; font-size: 25px; line-height: 1.12; text-wrap: balance;
+  }
+  .sheethead .sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .nowstrip {
+    display: flex; gap: 8px; flex-wrap: wrap; padding: 10px var(--gutter);
+    border-bottom: 1px solid var(--line-soft); background: var(--surface-2);
+  }
+  .stat { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--muted); }
+  .stat b { display: block; font-size: 14px; color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .badge {
+    display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid currentColor; letter-spacing: .03em;
+  }
+  .badge.up { color: var(--verdigris); }
+  .badge.down { color: var(--faint); }
+  .sheetbody { overflow-y: auto; padding: 14px var(--gutter) 20px; min-height: 0; -webkit-overflow-scrolling: touch; }
+  .sheetbody p { margin: 0 0 11px; max-width: 64ch; }
+  .sheetbody h4 {
+    margin: 16px 0 7px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--faint); font-weight: 500;
+  }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .actions button {
+    appearance: none; cursor: pointer; font: inherit; font-size: 12.5px; padding: 8px 14px;
+    border-radius: 999px; border: 1px solid var(--brass); background: transparent; color: var(--brass);
+  }
+  .actions button.primary { background: var(--brass); color: #10131D; }
+  .warn { color: var(--copper); border-left: 2px solid var(--copper); padding-left: 10px; }
+
+  .muted { color: var(--muted); }
+  .mono { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+  .small { font-size: 12px; }
+
+  @media (min-width: 900px) {
+    main { display: flex; }
+    .panel { position: relative; inset: auto; flex: 1; min-width: 0; }
+    #sheet {
+      position: relative; flex: none; width: 380px; max-height: none; border-radius: 0;
+      border-top: 0; border-left: 1px solid var(--line); box-shadow: none;
+    }
+    nav[role="tablist"] { grid-template-columns: repeat(4, minmax(0, 190px)); justify-content: center; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div id="app">
+  <header>
+    <div class="wordmark">Astro<em>Wander</em></div>
+    <div class="hgap"></div>
+    <button class="pill" id="locBtn" title="Set observing location">Locating&hellip;</button>
+    <button class="iconbtn" id="nightBtn" aria-pressed="false" title="Night-vision mode">&#9679;</button>
+  </header>
+
+  <main>
+    <!-- ============ SKY ============ -->
+    <section class="panel" id="panel-sky">
+      <div class="chartwrap" id="chartwrap">
+        <canvas id="sky"></canvas>
+        <div class="hud" id="skyHud"></div>
+      </div>
+      <div class="chartbar">
+        <div class="timerow">
+          <button class="chip" id="nowBtn">Now</button>
+          <input type="range" id="timeSlider" min="-720" max="720" step="5" value="0" aria-label="Time offset in minutes">
+          <span class="clock" id="clock"></span>
+        </div>
+        <button class="chip" id="tLines" aria-pressed="true">Constellations</button>
+        <button class="chip" id="tNames" aria-pressed="true">Names</button>
+        <button class="chip" id="tDso" aria-pressed="true">Deep sky</button>
+        <button class="chip" id="tMw" aria-pressed="true">Milky Way</button>
+        <button class="chip" id="tReset">Reset view</button>
+      </div>
+    </section>
+
+    <!-- ============ POINT ============ -->
+    <section class="panel" id="panel-point" hidden>
+      <div class="arwrap" id="arwrap">
+        <video id="arvideo" playsinline muted></video>
+        <canvas id="arcanvas"></canvas>
+        <div class="arstart" id="arStart">
+          <div class="arstart-inner">
+            <div style="font-family:'Instrument Serif',Georgia,serif;font-size:26px;margin-bottom:8px">Hold it up to the sky</div>
+            <p class="small" style="color:rgba(226,232,245,.65)">
+              The camera view gets the catalogue drawn over it, so you can point at something
+              and read off what it is. Phone compasses are typically 5&ndash;15&deg; out, so drag
+              sideways once to line the labels up with what you actually see &mdash; that nudge is remembered.
+            </p>
+            <button class="bigbtn" id="arStartBtn">Start camera</button>
+          </div>
+        </div>
+        <div class="arnote" id="arNote"></div>
+      </div>
+      <div class="chartbar">
+        <span class="small muted" id="arReadout">&mdash;</span>
+        <div class="hgap" style="flex:1"></div>
+        <button class="chip" id="arCal">Reset nudge</button>
+        <label class="small muted" style="display:flex;align-items:center;gap:6px">
+          Lens
+          <input type="range" id="arFov" min="30" max="100" step="1" value="63" style="width:90px;accent-color:var(--brass)" aria-label="Camera field of view">
+        </label>
+      </div>
+    </section>
+
+    <!-- ============ SOLVE ============ -->
+    <section class="panel" id="panel-solve" hidden>
+      <div class="scroll"><div class="pad">
+        <h3 style="font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-size:22px;margin:0 0 4px">Identify a photograph</h3>
+        <p class="lede small">
+          Give it a picture of the night sky and it works out where the camera was pointing &mdash;
+          by finding star patterns in the image and matching their geometry against the catalogue.
+          It needs roughly eight or more real stars in frame. A few seconds of exposure on a
+          steady surface is usually enough; a snapshot of a bright city sky will not be.
+          Everything runs on this device, and no image is uploaded anywhere.
+        </p>
+
+        <div class="drop" id="drop">
+          <strong>Choose a photo</strong>
+          <div class="small" style="margin-top:4px">or drag one here &middot; JPEG, PNG, HEIC</div>
+          <input type="file" id="file" accept="image/*" hidden>
+        </div>
+
+        <div id="solveOpts" class="card" style="margin-top:12px" hidden>
+          <label class="small muted" style="display:block;margin-bottom:8px">
+            Roughly how wide is the frame?
+            <select id="fovHint" style="font:inherit;margin-left:6px;padding:5px 8px;border-radius:7px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink)">
+              <option value="20,110" selected>I don't know &mdash; search everything</option>
+              <option value="45,110">Wide / ultrawide phone lens</option>
+              <option value="30,60">Standard phone lens</option>
+              <option value="12,35">Telephoto or small telescope</option>
+            </select>
+          </label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="bigbtn" id="solveBtn" style="margin-top:0">Solve</button>
+            <button class="chip" id="cancelBtn" hidden>Stop</button>
+          </div>
+          <div id="solveProg" hidden style="margin-top:12px">
+            <progress id="prog" max="1" value="0"></progress>
+            <div class="small muted mono" id="progText" style="margin-top:5px"></div>
+          </div>
+        </div>
+
+        <div id="solveOut"></div>
+      </div></div>
+    </section>
+
+    <!-- ============ ATLAS ============ -->
+    <section class="panel" id="panel-atlas" hidden>
+      <div class="searchrow">
+        <input type="search" id="q" placeholder="Search stars, planets, Messier objects, constellations" autocomplete="off">
+        <div class="filters">
+          <button class="chip" data-filter="all" aria-pressed="true">Everything</button>
+          <button class="chip" data-filter="body" aria-pressed="false">Solar system</button>
+          <button class="chip" data-filter="star" aria-pressed="false">Stars</button>
+          <button class="chip" data-filter="dso" aria-pressed="false">Deep sky</button>
+          <button class="chip" data-filter="up" aria-pressed="false">Up now</button>
+        </div>
+      </div>
+      <div class="scroll"><ul class="results" id="results"></ul></div>
+    </section>
+
+    <!-- ============ DETAIL SHEET ============ -->
+    <aside id="sheet" hidden>
+      <div class="sheethead">
+        <div style="flex:1;min-width:0">
+          <h2 id="shTitle"></h2>
+          <div class="sub" id="shSub"></div>
+        </div>
+        <button class="iconbtn" id="shClose" title="Close">&times;</button>
+      </div>
+      <div class="nowstrip" id="shNow"></div>
+      <div class="sheetbody" id="shBody"></div>
+    </aside>
+  </main>
+
+  <nav role="tablist">
+    <button role="tab" data-panel="sky" aria-selected="true">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>Sky
+    </button>
+    <button role="tab" data-panel="point" aria-selected="false">
+      <svg viewBox="0 0 24 24"><path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="3.6"/></svg>Point
+    </button>
+    <button role="tab" data-panel="solve" aria-selected="false">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/><path d="M11 8v6M8 11h6"/></svg>Solve
+    </button>
+    <button role="tab" data-panel="atlas" aria-selected="false">
+      <svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 5.5v15"/></svg>Atlas
+    </button>
+  </nav>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
+<script src="data/stars.js"></script>
+<script src="data/constellations.js"></script>
+<script src="data/dsos.js"></script>
+<script src="data/milkyway.js"></script>
+<script src="data/lore.js"></script>
+<script src="js/astro.js"></script>
+<script src="js/sky.js"></script>
+<script src="js/ar.js"></script>
+<script src="js/solve.js"></script>
+<script src="js/app.js"></script>
