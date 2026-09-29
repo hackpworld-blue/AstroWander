@@ -68,6 +68,11 @@
     color-scheme: dark;
   }
 
+  /* The browser's own [hidden] rule lives in the UA stylesheet, so any author rule that
+     sets display — .panel does — silently beats it and every section renders at once.
+     This has to be an author rule to win. */
+  [hidden] { display: none !important; }
+
   html, body { height: 100%; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
