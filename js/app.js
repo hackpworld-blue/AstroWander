@@ -58,10 +58,11 @@
     for (const t of document.querySelectorAll('[role=tab]')) {
       t.setAttribute('aria-selected', String(t.dataset.panel === name));
     }
-    for (const p of ['sky', 'point', 'solve', 'atlas']) $('panel-' + p).hidden = (p !== name);
+    for (const p of ['sky', 'tonight', 'point', 'solve', 'atlas']) $('panel-' + p).hidden = (p !== name);
     if (name !== 'point' && ar) ar.stop();
     if (name === 'sky') { sky.resize(); redraw(); }
     if (name === 'atlas') renderAtlas();
+    if (name === 'tonight') renderTonight();
   }
   for (const t of document.querySelectorAll('[role=tab]')) {
     t.addEventListener('click', () => setTab(t.dataset.panel));
@@ -278,6 +279,171 @@
       const li = el('li'); li.appendChild(el('div', 'muted small', 'Nothing matches that.'));
       ul.appendChild(li);
     }
+  }
+
+  /* ================= tonight ================= */
+  let eventCache = null;          /* {key, events} — the year-ahead scan is not cheap */
+  let eventFilter = 'all';
+
+  const hm = d => d ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+  const dayMon = d => d.toLocaleDateString([], { day: 'numeric', month: 'short' });
+
+  function renderTonight() {
+    const out = $('tonightOut');
+    out.textContent = '';
+    const d = now();
+    const obs = Astro.engineObserver();
+    const tn = Events.tonight(d, obs);
+
+    /* --- the night itself --- */
+    const c1 = el('div', 'card');
+    c1.appendChild(el('h3', null, 'Tonight'));
+    const tw = tn.twilight;
+    if (tw.noAstroNight) {
+      c1.appendChild(el('p', 'small', 'The Sun never drops 18° below your horizon at this time of year, ' +
+        'so there is no true astronomical darkness tonight — only twilight. Faint objects will be washed out.'));
+    } else {
+      c1.appendChild(el('p', null, 'Full darkness lasts ' + tw.darkHours.toFixed(1) +
+        ' hours, from ' + hm(tw.astroDusk) + ' to ' + hm(tw.astroDawn) + '.'));
+    }
+    c1.appendChild(factTable([
+      ['Sun sets', hm(tw.sunset)],
+      ['Astronomical dark', hm(tw.astroDusk) + ' → ' + hm(tw.astroDawn)],
+      ['Sun rises', hm(tw.sunrise)]
+    ]));
+    const m = tn.moon;
+    c1.appendChild(el('h4', null, 'Moon'));
+    c1.appendChild(el('p', null, m.phaseName + ', ' + (m.illum * 100).toFixed(0) + '% lit. ' +
+      (m.interference === 'negligible' ? 'It will barely affect the sky — a good night for faint objects.'
+       : m.interference === 'slight' ? 'Only slight interference with faint objects.'
+       : m.interference === 'moderate' ? 'Bright enough to dim faint galaxies and nebulae.'
+       : 'Bright enough to wash out everything but stars and planets.')));
+    c1.appendChild(factTable([['Moon rises', hm(m.rise)], ['Moon sets', hm(m.set)]]));
+    out.appendChild(c1);
+
+    /* --- planets tonight --- */
+    const c2 = el('div', 'card');
+    c2.appendChild(el('h3', null, 'Planets tonight'));
+    const vis = tn.planets.filter(p => p.best && !p.lostInGlare);
+    const no = tn.planets.filter(p => !(p.best && !p.lostInGlare));
+    if (!vis.length) {
+      c2.appendChild(el('p', 'small muted', 'No planets are usefully placed tonight.'));
+    } else {
+      const ul = el('ul', 'results');
+      for (const p of vis) {
+        const li = el('li');
+        const dot = el('div', 'updot up'); dot.title = 'Visible tonight';
+        const nm = el('div', 'rname');
+        nm.appendChild(el('strong', null, p.name));
+        nm.appendChild(el('span', null, 'best around ' + hm(p.best.when) +
+          ', ' + p.best.alt.toFixed(0) + '° up · ' + Astro.compass(p.azNow)));
+        li.appendChild(dot); li.appendChild(nm);
+        li.appendChild(el('div', 'rmag', 'mag ' + p.mag.toFixed(1)));
+        li.addEventListener('click', () => showObject({ type: 'body', name: p.name }));
+        ul.appendChild(li);
+      }
+      c2.appendChild(ul);
+    }
+    if (no.length) {
+      c2.appendChild(el('p', 'small muted', 'Not observable tonight: ' +
+        no.map(p => p.name + (p.lostInGlare ? ' (too near the Sun)' : ' (below the horizon while it is dark)')).join(', ') + '.'));
+    }
+    out.appendChild(c2);
+
+    /* --- what is changing --- */
+    const c3 = el('div', 'card');
+    c3.appendChild(el('h3', null, 'Changing this week'));
+    c3.appendChild(el('p', 'small muted',
+      'How each body shifts between tonight and a week from now — brightness, distance, and how much earlier or later it rises each day.'));
+    const rows = [];
+    for (const ch of Events.changes(d, obs)) {
+      const bits = [];
+      if (Math.abs(ch.magWeek) >= 0.02) {
+        bits.push((ch.magWeek < 0 ? 'brightening ' : 'fading ') + Math.abs(ch.magWeek).toFixed(2) + ' mag');
+      }
+      if (ch.riseShift != null && Math.abs(ch.riseShift) >= 1) {
+        bits.push('rises ' + Math.abs(ch.riseShift).toFixed(0) + ' min ' +
+          (ch.riseShift > 0 ? 'later' : 'earlier') + ' each day');
+      }
+      if (ch.illumWeek != null && Math.abs(ch.illumWeek) > 0.02) {
+        bits.push((ch.illumWeek > 0 ? 'waxing to ' : 'waning to ') + ((ch.illum + ch.illumWeek) * 100).toFixed(0) + '% lit');
+      }
+      if (Math.abs(ch.distWeek) > 0.004) {
+        bits.push((ch.distWeek < 0 ? 'closing' : 'receding') + ' ' + Math.abs(ch.distWeek).toFixed(3) + ' AU');
+      }
+      rows.push([ch.name, bits.length ? bits.join(' · ') : 'little change this week']);
+    }
+    c3.appendChild(factTable(rows));
+    out.appendChild(c3);
+
+    /* --- what is coming --- */
+    const c4 = el('div', 'card');
+    c4.appendChild(el('h3', null, 'Coming up'));
+    const filt = el('div', 'filters');
+    for (const [k, label] of [['all', 'Everything'], ['major', 'Big events'],
+                              ['moon', 'Moon'], ['planet', 'Planets'],
+                              ['conjunction', 'Close pairs'], ['meteor', 'Meteors']]) {
+      const b = el('button', 'chip', label);
+      b.setAttribute('aria-pressed', String(eventFilter === k));
+      b.addEventListener('click', function () { eventFilter = k; renderTonight(); });
+      filt.appendChild(b);
+    }
+    c4.appendChild(filt);
+    const listHost = el('div');
+    listHost.id = 'evList';
+    c4.appendChild(listHost);
+    out.appendChild(c4);
+
+    const key = Math.round(d.getTime() / 36e5) + '|' + Astro.getObserver().lat.toFixed(2) + '|' + Astro.getObserver().lon.toFixed(2);
+    if (eventCache && eventCache.key === key) {
+      paintEvents(listHost, eventCache.events);
+    } else {
+      listHost.appendChild(el('p', 'small muted', 'Working out the year ahead…'));
+      setTimeout(function () {
+        const events = Events.upcoming(d, obs, 365, {});
+        eventCache = { key: key, events: events };
+        if (currentTab === 'tonight') paintEvents($('evList') || listHost, events);
+      }, 40);
+    }
+  }
+
+  function paintEvents(host, events) {
+    host.textContent = '';
+    let list = events;
+    if (eventFilter === 'major') list = events.filter(e => e.major || e.kind === 'eclipse' || e.kind === 'meteor');
+    else if (eventFilter !== 'all') list = events.filter(e => e.kind === eventFilter);
+    if (eventFilter === 'moon') list = list.filter(e => !e.minor);   /* phases, not every apsis */
+
+    if (!list.length) { host.appendChild(el('p', 'small muted', 'Nothing of that kind in the next year.')); return; }
+
+    let month = '';
+    const ul = el('ul', 'results');
+    for (const e of list.slice(0, 160)) {
+      const mon = e.date.toLocaleDateString([], { month: 'long', year: 'numeric' });
+      if (mon !== month) {
+        month = mon;
+        const h = el('li');
+        h.style.cssText = 'display:block;padding:12px 0 4px;border:0;cursor:default';
+        h.appendChild(el('h4', null, mon));
+        ul.appendChild(h);
+      }
+      const li = el('li');
+      li.style.cursor = e.body ? 'pointer' : 'default';
+      const when = el('div', 'rmag', dayMon(e.date));
+      when.style.cssText = 'min-width:62px;color:var(--brass);font-weight:500';
+      const nm = el('div', 'rname');
+      const strong = el('strong', null, (e.icon ? e.icon + '  ' : '') + e.title);
+      if (e.hidden) strong.style.opacity = '.55';
+      nm.appendChild(strong);
+      nm.appendChild(el('span', null, e.detail + (e.approximate ? '' : '')));
+      li.appendChild(when); li.appendChild(nm);
+      if (e.body) li.addEventListener('click', () => showObject({ type: 'body', name: e.body }));
+      ul.appendChild(li);
+    }
+    host.appendChild(ul);
+    host.appendChild(el('p', 'small muted',
+      'All computed on this device from the planetary ephemeris, for your location. ' +
+      'Meteor shower peaks are the exception — those are observed rates, and the dates shift about a day year to year.'));
   }
 
   /* ================= detail sheet ================= */

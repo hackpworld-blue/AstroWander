@@ -120,7 +120,7 @@
 
   /* ---------- tab bar ---------- */
   nav[role="tablist"] {
-    flex: none; display: grid; grid-template-columns: repeat(4, 1fr);
+    flex: none; display: grid; grid-template-columns: repeat(5, 1fr);
     background: var(--surface); border-top: 1px solid var(--line);
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
@@ -132,6 +132,10 @@
     border-top: 2px solid transparent; margin-top: -1px;
   }
   [role="tab"] svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+  @media (max-width: 420px) {
+    [role="tab"] { font-size: 9.5px; letter-spacing: .03em; padding-inline: 2px; }
+    [role="tab"] svg { width: 17px; height: 17px; }
+  }
   [role="tab"][aria-selected="true"] { color: var(--brass); border-top-color: var(--brass); }
 
   /* ---------- sky chart ---------- */
@@ -287,7 +291,7 @@
       position: relative; flex: none; width: 380px; max-height: none; border-radius: 0;
       border-top: 0; border-left: 1px solid var(--line); box-shadow: none;
     }
-    nav[role="tablist"] { grid-template-columns: repeat(4, minmax(0, 190px)); justify-content: center; }
+    nav[role="tablist"] { grid-template-columns: repeat(5, minmax(0, 170px)); justify-content: center; }
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -319,6 +323,11 @@
         <button class="chip" id="tMw" aria-pressed="true">Milky Way</button>
         <button class="chip" id="tReset">Reset view</button>
       </div>
+    </section>
+
+    <!-- ============ TONIGHT ============ -->
+    <section class="panel" id="panel-tonight" hidden>
+      <div class="scroll"><div class="pad" id="tonightOut"></div></div>
     </section>
 
     <!-- ============ POINT ============ -->
@@ -425,6 +434,9 @@
     <button role="tab" data-panel="sky" aria-selected="true">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>Sky
     </button>
+    <button role="tab" data-panel="tonight" aria-selected="false">
+      <svg viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a6.8 6.8 0 0 0 11 11z"/></svg>Tonight
+    </button>
     <button role="tab" data-panel="point" aria-selected="false">
       <svg viewBox="0 0 24 24"><path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="3.6"/></svg>Point
     </button>
@@ -447,4 +459,5 @@
 <script src="js/sky.js"></script>
 <script src="js/ar.js"></script>
 <script src="js/solve.js"></script>
+<script src="js/events.js"></script>
 <script src="js/app.js"></script>
