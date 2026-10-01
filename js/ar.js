@@ -163,7 +163,7 @@ window.ARView = (function () {
         ctx.globalAlpha = 1;
         hits.push({ x: p[0], y: p[1], r: 22, obj: { type: 'star', i: i } });
         if (s[7] && s[2] < 3.2) {
-          ctx.font = '500 11px "IBM Plex Sans", sans-serif';
+          ctx.font = '600 13px "IBM Plex Sans", sans-serif';
           ctx.fillStyle = th.text;
           ctx.fillText(s[7], p[0] + r + 5, p[1]);
         }
@@ -179,7 +179,7 @@ window.ARView = (function () {
         ctx.globalAlpha = 1;
         ctx.fillStyle = b.tone;
         ctx.beginPath(); ctx.arc(p[0], p[1], rr, 0, Math.PI * 2); ctx.fill();
-        ctx.font = '600 12px "IBM Plex Sans", sans-serif';
+        ctx.font = '700 14px "IBM Plex Sans", sans-serif';
         ctx.fillStyle = th.text;
         ctx.fillText(b.name, p[0] + rr + 6, p[1]);
         hits.push({ x: p[0], y: p[1], r: 26, obj: { type: 'body', name: b.name } });
@@ -187,7 +187,7 @@ window.ARView = (function () {
 
       /* deep-sky objects worth naming */
       ctx.strokeStyle = th.brass; ctx.lineWidth = 1;
-      ctx.font = '400 10px "IBM Plex Mono", monospace';
+      ctx.font = '500 12px "IBM Plex Mono", monospace';
       for (let i = 0; i < window.DSOS.length; i++) {
         const d = window.DSOS[i];
         if (d[4] > 7.5) continue;
@@ -250,7 +250,7 @@ window.ARView = (function () {
         ctx.closePath(); ctx.fill();
       }
       ctx.restore();
-      ctx.font = '600 12px "IBM Plex Mono", monospace';
+      ctx.font = '700 14px "IBM Plex Mono", monospace';
       ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillStyle = near ? th.good : th.brass;
       const name = target.label || '';

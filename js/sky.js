@@ -10,6 +10,34 @@ window.SkyMap = (function () {
     let W = 0, H = 0, cx = 0, cy = 0, R = 0, dpr = 1;
     let zoom = 1, panX = 0, panY = 0;
     let frame = null, hits = [], sel = null;
+    /* Labels are collected while drawing and placed afterwards in priority order, so a
+       planet never loses its name to a constellation caption drawn earlier. Anything that
+       would overprint something already placed is dropped rather than stacked. */
+    let labels = [];
+    const label = (text, x, y, font, color, prio, align) =>
+      labels.push({ text: text, x: x, y: y, font: font, color: color, prio: prio, align: align || 'left' });
+
+    function flushLabels() {
+      labels.sort((a, b) => a.prio - b.prio);
+      const placed = [];
+      for (const L of labels) {
+        ctx.font = L.font;
+        const w = ctx.measureText(L.text).width;
+        const h = parseFloat(L.font.match(/(\d+(?:\.\d+)?)px/)[1]) * 1.15;
+        const x0 = L.align === 'center' ? L.x - w / 2 : L.x;
+        const box = [x0 - 2, L.y - h / 2 - 1, x0 + w + 2, L.y + h / 2 + 1];
+        let clash = false;
+        for (const q of placed) {
+          if (box[0] < q[2] && box[2] > q[0] && box[1] < q[3] && box[3] > q[1]) { clash = true; break; }
+        }
+        if (clash) continue;
+        placed.push(box);
+        ctx.fillStyle = L.color;
+        ctx.textAlign = L.align; ctx.textBaseline = 'middle';
+        ctx.fillText(L.text, L.x, L.y);
+      }
+      ctx.textAlign = 'left';
+    }
     const cfg = Object.assign({
       showLines: true, showNames: true, showMilkyWay: true,
       showDSO: true, showLabels: true, magLimit: 5.6
@@ -87,7 +115,7 @@ window.SkyMap = (function () {
 
     function drawCardinals(theme) {
       ctx.save();
-      ctx.font = '600 11px "IBM Plex Mono", monospace';
+      ctx.font = '600 13px "IBM Plex Mono", monospace';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const marks = [[0, 'N'], [45, 'NE'], [90, 'E'], [135, 'SE'], [180, 'S'], [225, 'SW'], [270, 'W'], [315, 'NW']];
       for (const [az, label] of marks) {
@@ -124,14 +152,12 @@ window.SkyMap = (function () {
         if (n > 3) centroids[abbr] = [sx / n, sy / n, n];
       }
       if (cfg.showNames) {
-        ctx.font = '400 10px "IBM Plex Sans", sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillStyle = theme.conName;
         for (const abbr in centroids) {
           const c = centroids[abbr];
           if (c[2] < 6) continue;
           const name = window.CON_NAMES[abbr];
-          if (name) ctx.fillText(name.toUpperCase(), c[0], c[1]);
+          if (name) label(name.toUpperCase(), c[0], c[1],
+            '500 11.5px "IBM Plex Sans", sans-serif', theme.conName, 3, 'center');
         }
       }
       ctx.restore();
@@ -158,11 +184,10 @@ window.SkyMap = (function () {
           ctx.globalAlpha = 1;
         }
         if (s[2] < 8) hits.push({ x: p[0], y: p[1], r: Math.max(9, r + 6), obj: { type: 'star', i: i } });
-        if (cfg.showLabels && s[7] && s[2] < (zoom > 1.6 ? 3.4 : 2.2)) {
-          ctx.font = '400 10px "IBM Plex Sans", sans-serif';
-          ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-          ctx.fillStyle = theme.starName;
-          ctx.fillText(s[7], p[0] + r + 4, p[1]);
+        if (cfg.showLabels && s[7] && s[2] < (zoom > 1.6 ? 3.6 : 2.6)) {
+          /* brighter stars get first claim on the space */
+          label(s[7], p[0] + r + 5, p[1], '500 11.5px "IBM Plex Sans", sans-serif',
+                theme.starName, 1 + s[2] / 10);
         }
       }
     }
@@ -171,7 +196,7 @@ window.SkyMap = (function () {
       if (!cfg.showDSO) return;
       ctx.save();
       ctx.strokeStyle = theme.dso; ctx.lineWidth = 1.1;
-      ctx.font = '400 9px "IBM Plex Mono", monospace';
+      ctx.font = '500 11px "IBM Plex Mono", monospace';
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       for (let i = 0; i < window.DSOS.length; i++) {
         const d = window.DSOS[i];
@@ -191,8 +216,7 @@ window.SkyMap = (function () {
         ctx.stroke();
         hits.push({ x: p[0], y: p[1], r: 11, obj: { type: 'dso', i: i } });
         if (cfg.showLabels && (zoom > 1.4 || d[4] < 7)) {
-          ctx.fillStyle = theme.dso;
-          ctx.fillText(d[0], p[0] + rr + 3, p[1]);
+          label(d[0], p[0] + rr + 4, p[1], '500 11px "IBM Plex Mono", monospace', theme.dso, 2.5);
         }
       }
       ctx.restore();
@@ -246,10 +270,8 @@ window.SkyMap = (function () {
         }
         hits.push({ x: p[0], y: p[1], r: Math.max(14, rr + 8), obj: { type: 'body', name: b.name } });
         if (cfg.showLabels) {
-          ctx.font = '500 11px "IBM Plex Sans", sans-serif';
-          ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-          ctx.fillStyle = theme.bodyName;
-          ctx.fillText(b.name, p[0] + rr + 5, p[1]);
+          label(b.name, p[0] + rr + 6, p[1], '600 13px "IBM Plex Sans", sans-serif',
+                theme.bodyName, 0);
         }
       }
     }
@@ -302,7 +324,7 @@ window.SkyMap = (function () {
       if (f) frame = f;
       if (!frame) return;
       if (!W) resize();
-      hits = [];
+      hits = []; labels = [];
       const theme = themeColors();
       ctx.clearRect(0, 0, W, H);
 
@@ -316,6 +338,7 @@ window.SkyMap = (function () {
       drawDSOs(theme);
       drawStars(theme);
       drawBodies(theme);
+      flushLabels();
       drawSelection(theme);
       ctx.restore();
 
